@@ -33,16 +33,34 @@ jobs:
     - name: Debug kubeconfig
       if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
       run: |
-        echo "Cluster server in kubeconfig:"
-        kubectl --kubeconfig=kubeconfig config view --minify -o jsonpath='{.clusters[0].cluster.server}'
+        echo "Kubeconfig content (sensitive data redacted):"
+        sed 's/\(certificate-authority-data:\)[^[]*]/\1REDACTED]/g; s/\(client-certificate-data:\)[^[]*]/\1REDACTED]/g; s/\(client-key-data:\)[^[]*]/\1REDACTED]/g' kubeconfig
+        echo "\n---"
+        echo "Available contexts:"
+        kubectl config get-contexts
         echo "\n---"
         echo "Current context:"
-        kubectl --kubeconfig=kubeconfig config current-context || echo "No current context set"
+        kubectl config current-context || echo "No current context set"
+        echo "\n---"
+        echo "Cluster information:"
+        kubectl config view -o jsonpath='{.clusters[*].cluster.server}'
+
+    - name: Set current context
+      if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+      run: |
+        CONTEXT=$(kubectl config get-contexts -o name | head -n 1)
+        if [ -n "$CONTEXT" ]; then
+          kubectl config use-context "$CONTEXT"
+          echo "Set current context to: $CONTEXT"
+        else
+          echo "No contexts available in kubeconfig"
+          exit 1
+        fi
 
     - name: Verify kubectl configuration
       if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
       run: |
-        if ! kubectl --kubeconfig=kubeconfig get nodes --insecure-skip-tls-verify; then
+        if ! kubectl get nodes --insecure-skip-tls-verify; then
           echo "Error: Unable to connect to the cluster. The cluster may not be accessible from GitHub Actions."
           echo "If this is a local cluster, you may need to set up a VPN or use a self-hosted runner."
           exit 1
@@ -53,9 +71,9 @@ jobs:
     - name: Deploy to Home Lab Kubernetes
       if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
       run: |
-        if ! helm --kubeconfig=kubeconfig upgrade --install myapp helm-charts/myapp --namespace default --set image.repository=dpentim78/oteemo-app --debug --insecure-skip-tls-verify; then
+        if ! helm upgrade --install myapp helm-charts/myapp --namespace default --set image.repository=dpentim78/oteemo-app --debug --insecure-skip-tls-verify; then
           echo "Error: Helm deployment failed. Here's some debug information:"
-          helm --kubeconfig=kubeconfig ls --all-namespaces --insecure-skip-tls-verify
-          kubectl --kubeconfig=kubeconfig get pods --all-namespaces --insecure-skip-tls-verify
+          helm ls --all-namespaces --insecure-skip-tls-verify
+          kubectl get pods --all-namespaces --insecure-skip-tls-verify
           exit 1
         fi
