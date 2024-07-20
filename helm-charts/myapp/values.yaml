@@ -1,0 +1,13 @@
+replicaCount: 1
+
+image:
+  repository: dpentim78/myapp
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 3000
+
+ingress:
+  enabled: false
