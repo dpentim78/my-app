@@ -33,21 +33,18 @@ jobs:
     - name: Debug kubeconfig
       if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
       run: |
-        echo "Kubeconfig contents (sensitive information redacted):"
-        sed 's/\(server: https:\/\/\)[^:]*\(.*\)/\1REDACTED\2/' kubeconfig
-        echo "---"
-        echo "Contexts in kubeconfig:"
-        kubectl --kubeconfig=kubeconfig config get-contexts
-        echo "---"
+        echo "Cluster server in kubeconfig:"
+        kubectl --kubeconfig=kubeconfig config view --minify -o jsonpath='{.clusters[0].cluster.server}'
+        echo "\n---"
         echo "Current context:"
         kubectl --kubeconfig=kubeconfig config current-context || echo "No current context set"
 
     - name: Verify kubectl configuration
       if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
       run: |
-        if ! kubectl --kubeconfig=kubeconfig get nodes; then
-          echo "Error: Unable to connect to the cluster. Here's some debug information:"
-          kubectl --kubeconfig=kubeconfig config view
+        if ! kubectl --kubeconfig=kubeconfig get nodes --insecure-skip-tls-verify; then
+          echo "Error: Unable to connect to the cluster. The cluster may not be accessible from GitHub Actions."
+          echo "If this is a local cluster, you may need to set up a VPN or use a self-hosted runner."
           exit 1
         else
           echo "Successfully connected to the cluster"
@@ -56,9 +53,9 @@ jobs:
     - name: Deploy to Home Lab Kubernetes
       if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
       run: |
-        if ! helm --kubeconfig=kubeconfig upgrade --install myapp helm-charts/myapp --namespace default --set image.repository=dpentim78/oteemo-app --debug; then
+        if ! helm --kubeconfig=kubeconfig upgrade --install myapp helm-charts/myapp --namespace default --set image.repository=dpentim78/oteemo-app --debug --insecure-skip-tls-verify; then
           echo "Error: Helm deployment failed. Here's some debug information:"
-          helm --kubeconfig=kubeconfig ls --all-namespaces
-          kubectl --kubeconfig=kubeconfig get pods --all-namespaces
+          helm --kubeconfig=kubeconfig ls --all-namespaces --insecure-skip-tls-verify
+          kubectl --kubeconfig=kubeconfig get pods --all-namespaces --insecure-skip-tls-verify
           exit 1
         fi
