@@ -8,14 +8,18 @@ on:
 
 jobs:
   lint-and-deploy:
-    runs-on: self-hosted  # This specifies to use the self-hosted runner
+    runs-on: self-hosted
     steps:
     - uses: actions/checkout@v2
     
-    - name: Set up Helm
-      uses: azure/setup-helm@v3
-      with:
-        version: v3.8.0
+    - name: Check Helm installation
+      run: |
+        if ! command -v helm &> /dev/null; then
+          echo "Helm is not installed. Please install Helm on your self-hosted runner."
+          echo "Visit https://helm.sh/docs/intro/install/ for installation instructions."
+          exit 1
+        fi
+        helm version
 
     - name: Lint Helm Chart
       run: helm lint helm-charts/myapp
