@@ -36,7 +36,14 @@ jobs:
 
     - name: Deploy to Home Lab Kubernetes
       run: |
-        if ! helm upgrade --install myapp helm-charts/myapp --namespace default --set image.repository=dpentim78/oteemo-app --debug; then
+        if ! helm upgrade --install myapp helm-charts/myapp \
+          --namespace default \
+          --set image.repository=dpentim78/oteemo-app \
+          --set ingress.enabled=true \
+          --set ingress.hosts[0].host=myapp.local \
+          --set ingress.hosts[0].paths[0].path=/ \
+          --set ingress.hosts[0].paths[0].pathType=Prefix \
+          --debug; then
           echo "Error: Helm deployment failed. Here's some debug information:"
           helm ls --all-namespaces
           kubectl get pods --all-namespaces
