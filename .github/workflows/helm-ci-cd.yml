@@ -29,7 +29,13 @@ jobs:
         echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig
         echo "KUBECONFIG=kubeconfig" >> $GITHUB_ENV
 
+    - name: Debug kubeconfig
+      if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+      run: |
+        kubectl config view --raw
+        kubectl cluster-info
+
     - name: Deploy to Home Lab Kubernetes
       if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
       run: |
-        helm upgrade --install myapp helm-charts/myapp --namespace default --set image.repository=dpentim78/oteemo-app
+        helm upgrade --install myapp helm-charts/myapp --namespace default --set image.repository=dpentim78/oteemo-app --debug
