@@ -32,8 +32,14 @@ jobs:
     - name: Debug kubeconfig
       if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
       run: |
-        kubectl config view --raw
+        echo "Kubeconfig content (sensitive information redacted):"
+        sed 's/\(server: https:\/\/\)[^:]*\(.*\)/\1REDACTED\2/' kubeconfig
+        echo "Kubectl version:"
+        kubectl version --client
+        echo "Cluster info:"
         kubectl cluster-info
+        echo "Nodes in the cluster:"
+        kubectl get nodes
 
     - name: Deploy to Home Lab Kubernetes
       if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
