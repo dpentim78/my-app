@@ -27,21 +27,28 @@ jobs:
       if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
       run: |
         echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig
+        chmod 600 kubeconfig
         echo "KUBECONFIG=kubeconfig" >> $GITHUB_ENV
 
-    - name: Debug kubeconfig
+    - name: Verify kubectl configuration
       if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
       run: |
-        echo "Kubeconfig content (sensitive information redacted):"
-        sed 's/\(server: https:\/\/\)[^:]*\(.*\)/\1REDACTED\2/' kubeconfig
-        echo "Kubectl version:"
-        kubectl version --client
-        echo "Cluster info:"
-        kubectl cluster-info
-        echo "Nodes in the cluster:"
-        kubectl get nodes
+        if ! kubectl --kubeconfig=kubeconfig get nodes &>/dev/null; then
+          echo "Error: Unable to connect to the cluster. Here's some debug information:"
+          kubectl --kubeconfig=kubeconfig config view --minify
+          kubectl --kubeconfig=kubeconfig cluster-info
+          exit 1
+        else
+          echo "Successfully connected to the cluster"
+          kubectl --kubeconfig=kubeconfig get nodes
+        fi
 
     - name: Deploy to Home Lab Kubernetes
       if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
       run: |
-        helm upgrade --install myapp helm-charts/myapp --namespace default --set image.repository=dpentim78/oteemo-app --debug
+        if ! helm --kubeconfig=kubeconfig upgrade --install myapp helm-charts/myapp --namespace default --set image.repository=dpentim78/oteemo-app --debug; then
+          echo "Error: Helm deployment failed. Here's some debug information:"
+          helm --kubeconfig=kubeconfig ls --all-namespaces
+          kubectl --kubeconfig=kubeconfig get pods --all-namespaces
+          exit 1
+        fi
